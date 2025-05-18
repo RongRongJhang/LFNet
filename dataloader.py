@@ -68,7 +68,7 @@ class UnpairedDataset(Dataset):
 
     def __len__(self):
         return len(self.low_images)
-
+    
     def __getitem__(self, idx):
         low_image_path = os.path.join(self.low_dir, self.low_images[idx])
         low_image = Image.open(low_image_path).convert('RGB')
@@ -76,14 +76,13 @@ class UnpairedDataset(Dataset):
         if self.transform:
             low_image = self.transform(low_image)
             factor = 8
-            h, w = input.shape[1], input.shape[2]
+            h, w = low_image.shape[1], low_image.shape[2]
             H, W = ((h + factor) // factor) * factor, ((w + factor) // factor) * factor
             padh = H - h if h % factor != 0 else 0
             padw = W - w if w % factor != 0 else 0
-            low_image = F.pad(input.unsqueeze(0), (0,padw,0,padh), 'reflect').squeeze(0)
+            low_image = F.pad(low_image.unsqueeze(0), (0, padw, 0, padh), 'reflect').squeeze(0)
 
         return low_image, self.low_images[idx]
-
 
 def create_paired_dataloaders(train_low, train_high, valid_low, valid_high, crop_size, batch_size, num_workers):
     train_loader = None

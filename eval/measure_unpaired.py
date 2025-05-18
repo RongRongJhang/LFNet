@@ -8,14 +8,6 @@ from options import option
 
 opt = option().parse_args()
 
-eval_parser = argparse.ArgumentParser(description='Eval')
-eval_parser.add_argument('--DICM', action='store_true', help='output DICM dataset')
-eval_parser.add_argument('--LIME', action='store_true', help='output LIME dataset')
-eval_parser.add_argument('--MEF', action='store_true', help='output MEF dataset')
-eval_parser.add_argument('--NPE', action='store_true', help='output NPE dataset')
-eval_parser.add_argument('--VV', action='store_true', help='output VV dataset')
-ep = eval_parser.parse_args()
-
 def metrics(im_dir):
     avg_niqe = 0
     n = 0
@@ -40,19 +32,19 @@ def metrics(im_dir):
 
 if __name__ == '__main__':
 
-    if ep.DICM:
+    if opt.DICM:
         im_dir = opt.results_folder + 'testing/output/DICM/*.jpg'
 
-    elif ep.LIME:
+    elif opt.LIME:
         im_dir = opt.results_folder + 'testing/output/LIME/*.bmp'
 
-    elif ep.MEF:
+    elif opt.MEF:
         im_dir = opt.results_folder + 'testing/output/MEF/*.png'
 
-    elif ep.NPE:
+    elif opt.NPE:
         im_dir = opt.results_folder + 'testing/output/NPE/*.jpg'
 
-    elif ep.VV:
+    elif opt.VV:
         im_dir = opt.results_folder + 'testing/output/VV/*.jpg'
 
 

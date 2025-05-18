@@ -12,7 +12,7 @@ def option():
 
     # train input
     parser.add_argument('--data_train_lol_v1'       , type=str, default='datasets/LOLdataset/our485/low')
-    parser.add_argument('--data_train_lolv2_real'   , type=str, default='dadatasetsta/LOLv2/Real_captured/Train/Low')
+    parser.add_argument('--data_train_lolv2_real'   , type=str, default='datasets/LOLv2/Real_captured/Train/Low')
     parser.add_argument('--data_train_lolv2_syn'    , type=str, default='datasets/LOLv2/Synthetic/Train/Low')
 
     # train ground truth
@@ -47,21 +47,21 @@ def option():
     parser.add_argument('--freq_weight',  type=float, default=0.05)
 
     # best model
-    parser.add_argument('--best_PSNR', action='store_true', help='output dataset best_PSNR')
-    parser.add_argument('--best_SSIM', action='store_true', help='output dataset best_SSIM')
-    parser.add_argument('--best_LPIPS', action='store_true', help='output dataset best_LPIPS')
+    parser.add_argument('--best_PSNR', action='store_true')
+    parser.add_argument('--best_SSIM', action='store_true') 
+    parser.add_argument('--best_LPIPS', action='store_true')
 
-    # choose which dataset you want to train, please only set one "True"
-    parser.add_argument('--lol_v1', type=bool, default=True)
-    parser.add_argument('--lolv2_real', type=bool, default=False)
-    parser.add_argument('--lolv2_syn', type=bool, default=False)
+    # choose which dataset you want to train
+    parser.add_argument('--lol_v1', action='store_true')
+    parser.add_argument('--lolv2_real', action='store_true')
+    parser.add_argument('--lolv2_syn', action='store_true')
 
-    # choose which dataset you want to test, please only set one "True"
-    parser.add_argument('--DICM', type=bool, default=True)
-    parser.add_argument('--LIME', type=bool, default=False)
-    parser.add_argument('--MEF', type=bool, default=False)
-    parser.add_argument('--NPE', type=bool, default=False)
-    parser.add_argument('--VV', type=bool, default=False)
+    # choose which dataset you want to test
+    parser.add_argument('--DICM', action='store_true')
+    parser.add_argument('--LIME', action='store_true')
+    parser.add_argument('--MEF', action='store_true')
+    parser.add_argument('--NPE', action='store_true')
+    parser.add_argument('--VV', action='store_true')
 
     # Google Drive results folder
     parser.add_argument('--results_folder', default='/content/drive/MyDrive/LFNet/results/', help='Location to save results')
