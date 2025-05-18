@@ -30,10 +30,13 @@ def transform3(size):
 
 
 class PairedDataset(Dataset):
-    def __init__(self, low_dir, high_dir, transform=None):
+    def __init__(self, low_dir, high_dir, transform=None, crop_size=None, training=True):
         self.low_dir = low_dir
         self.high_dir = high_dir
         self.transform = transform
+        self.crop_size = crop_size
+        self.training = training
+
         self.low_images = sorted([f for f in os.listdir(low_dir) if os.path.isfile(os.path.join(low_dir, f))])
         self.high_images = sorted([f for f in os.listdir(high_dir) if os.path.isfile(os.path.join(high_dir, f))])
 
@@ -55,7 +58,7 @@ class PairedDataset(Dataset):
             low_image = self.transform(low_image)
             random.seed(seed)
             torch.manual_seed(seed)         
-            high_image = self.transform(high_image) 
+            high_image = self.transform(high_image)
 
         return low_image, high_image, self.low_images[idx]
 

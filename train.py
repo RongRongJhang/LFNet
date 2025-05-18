@@ -16,6 +16,8 @@ from util import save_valid_output
 from eval.measure import metrics
 from dataloader import create_paired_dataloaders
 
+# e.g.
+# python train.py --lol_v1
 
 opt = option().parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -65,9 +67,7 @@ def main():
     criterion = CombinedLoss(device)
     optimizer = optim.Adam(model.parameters(), lr=opt.lr)
     scheduler = CosineAnnealingLR(optimizer, T_max=opt.nEpochs)
-    scaler = GradScaler('cuda')
-
-    torch.autograd.set_detect_anomaly(True)
+    scaler = GradScaler(enabled=opt.gpu_mode)
 
     best_psnr = 0
     best_ssim = 0
