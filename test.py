@@ -41,23 +41,23 @@ def main():
     if opt.DICM:
         test_low = opt.data_DICM
         unpaired = 'DICM/'
-        fnex = '*.jpg'
+        # fnex = '*.jpg'
     elif opt.LIME:
         test_low = opt.data_LIME
         unpaired = 'LIME/'
-        fnex = '*.bmp'
+        # fnex = '*.bmp'
     elif opt.MEF:
         test_low = opt.data_MEF
         unpaired = 'MEF/'
-        fnex = '*.png'
+        # fnex = '*.png'
     elif opt.NPE:
         test_low = opt.data_NPE
         unpaired = 'NPE/'
-        fnex = '*.jpg'
+        # fnex = '*.jpg'
     elif opt.VV:
         test_low = opt.data_VV
         unpaired = 'VV/'
-        fnex = '*.jpg'
+        # fnex = '*.jpg'
     
     output_folder = opt.results_folder + paired + 'test/output/' + unpaired
 
@@ -71,7 +71,8 @@ def main():
 
     save_test_output(model, test_loader, device, output_folder)
 
-    avg_niqe, avg_brisque = metrics_niqu(output_folder + fnex)
+    # avg_niqe, avg_brisque = metrics_niqu(output_folder + fnex)
+    avg_niqe, avg_brisque = metrics_niqu(output_folder + '*.png')
     print(f'Test NIQE: {avg_niqe:.4f}, BRISQUE: {avg_brisque:.4f}')
 
     os.environ['TZ']='Asia/Taipei'  

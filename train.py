@@ -15,6 +15,7 @@ from options import option
 from util import save_valid_output
 from eval.measure import metrics
 from dataloader import create_paired_dataloaders
+# from torchvision.utils import save_image
 
 # e.g.
 # python train.py --lol_v1
@@ -78,11 +79,17 @@ def main():
         model.train()
         train_loss = 0.0
         for batch in tqdm(train_loader):
-            inputs, targets, _ = batch
+            inputs, targets, name = batch
             inputs, targets = inputs.to(device), targets.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)
+
+            # outputs = torch.clamp(outputs, 0, 1)
+            # filename = name[0] if not name[0].endswith('.png') else name[0]
+            # save_path = os.path.join(opt.results_folder + 'LOLdataset/train/temp', filename)
+            # save_image(outputs, save_path)
+
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
