@@ -29,7 +29,6 @@ def save_test_output(model, test_loader, device, output_folder):
             low = low.to(device)
             output = model(low)
             output = torch.clamp(output, 0, 1)
-            # filename = name[0] if is_image_file(name[0]) else None
-            filename = name[0] if not name[0].endswith('.png') else name[0]
+            filename = name[0] if is_image_file(name[0]) else None
             save_path = os.path.join(output_folder, filename)
             save_image(output, save_path)
