@@ -19,9 +19,9 @@ class LayerNormalization(nn.Module):
         x = x.permute(0, 3, 1, 2).contiguous()
         return x * self.gamma + self.beta
 
-class ShuffleAttention(nn.Module):
+class TruncatedShuffleAttention(nn.Module):
     def __init__(self, channels, reduction=4):
-        super(ShuffleAttention, self).__init__()
+        super(TruncatedShuffleAttention, self).__init__()
         self.channels = channels
         self.reduction = reduction
         self.group_channels = channels // reduction
@@ -55,7 +55,7 @@ class EFBlock(nn.Module):
         super(EFBlock, self).__init__()
         self.layer_norm = LayerNormalization(filters)
         self.depthwise_conv = nn.Conv2d(filters, filters, kernel_size=3, padding=1, groups=filters)
-        self.attention = ShuffleAttention(filters)
+        self.attention = TruncatedShuffleAttention(filters)
         self._init_weights()
 
     def forward(self, x):
