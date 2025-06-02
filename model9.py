@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from ecb import ECB
 
+# model7_modify5_fix2 (只留 denoiser + msef)
+
 class LayerNormalization(nn.Module):
     def __init__(self, dim):
         super(LayerNormalization, self).__init__()
@@ -27,7 +29,6 @@ class ShuffleAttention(nn.Module):
         self.groups = max(1, channels // self.group_channels)
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         
-        # 修改權重形狀以匹配分組後的通道數
         self.weight = nn.Parameter(torch.zeros(1, self.group_channels, 1, 1))
         self.bias = nn.Parameter(torch.ones(1, self.group_channels, 1, 1))
         
@@ -35,61 +36,19 @@ class ShuffleAttention(nn.Module):
         self._init_weights()
 
     def forward(self, x):
-        b, c, h, w = x.size()
+        b, c, _, _ = x.size()
         
-        # Channel attention
-        y = self.avg_pool(x)  # [b, c, 1, 1]
+        y = self.avg_pool(x)
         y = y.reshape(b * self.groups, self.group_channels, 1, 1)
         y = self.sigmoid(y * self.weight + self.bias)
+        y = y.reshape(b, c, 1, 1)
         
-        # Spatial attention
-        x_group = x.reshape(b * self.groups, self.group_channels, h, w)
-        out = x_group * y
-        out = out.reshape(b, c, h, w)
+        out = x * y
         
         return out
 
     def _init_weights(self):
         init.kaiming_uniform_(self.weight, a=0, mode='fan_in', nonlinearity='relu')
-
-class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, embed_size, num_heads):
-        super(MultiHeadSelfAttention, self).__init__()
-        self.embed_size = embed_size
-        self.num_heads = num_heads
-        assert embed_size % num_heads == 0
-        self.head_dim = embed_size // num_heads
-        self.query_dense = nn.Linear(embed_size, embed_size)
-        self.key_dense = nn.Linear(embed_size, embed_size)
-        self.value_dense = nn.Linear(embed_size, embed_size)
-        self.combine_heads = nn.Linear(embed_size, embed_size)
-        self._init_weights()
-
-    def split_heads(self, x, batch_size):
-        x = x.reshape(batch_size, -1, self.num_heads, self.head_dim)
-        return x.permute(0, 2, 1, 3)
-
-    def forward(self, x):
-        batch_size, _, height, width = x.size()
-        x = x.reshape(batch_size, height * width, -1)
-        query = self.split_heads(self.query_dense(x), batch_size)
-        key = self.split_heads(self.key_dense(x), batch_size)
-        value = self.split_heads(self.value_dense(x), batch_size)
-        attention_weights = F.softmax(torch.matmul(query, key.transpose(-2, -1)) / (self.head_dim ** 0.5), dim=-1)
-        attention = torch.matmul(attention_weights, value)
-        attention = attention.permute(0, 2, 1, 3).contiguous().reshape(batch_size, -1, self.embed_size)
-        output = self.combine_heads(attention)
-        return output.reshape(batch_size, height, width, self.embed_size).permute(0, 3, 1, 2)
-
-    def _init_weights(self):
-        init.xavier_uniform_(self.query_dense.weight)
-        init.xavier_uniform_(self.key_dense.weight)
-        init.xavier_uniform_(self.value_dense.weight)
-        init.xavier_uniform_(self.combine_heads.weight)
-        init.constant_(self.query_dense.bias, 0)
-        init.constant_(self.key_dense.bias, 0)
-        init.constant_(self.value_dense.bias, 0)
-        init.constant_(self.combine_heads.bias, 0)
 
 class EFBlock(nn.Module):
     def __init__(self, filters):
@@ -117,7 +76,7 @@ class Denoiser(nn.Module):
         self.conv1 = nn.Conv2d(3, num_filters, kernel_size=kernel_size, padding=1)
         self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
         self.conv3 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
-        self.bottleneck = MultiHeadSelfAttention(embed_size=num_filters, num_heads=4)
+        self.bottleneck = EFBlock(num_filters)
         self.refine3 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
         self.refine2 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
@@ -147,7 +106,7 @@ class LaaFNet(nn.Module):
     def __init__(self, filters=48):
         super(LaaFNet, self).__init__()
         self.denoiser = Denoiser(filters, kernel_size=3, activation='relu')
-        self.msef = EFBlock(filters)
+        self.efblock = EFBlock(filters)
         self.final_conv = nn.Sequential(
             nn.Conv2d(filters, filters//2, 3, padding=1),
             nn.ReLU(inplace=True),
@@ -157,7 +116,7 @@ class LaaFNet(nn.Module):
 
     def forward(self, inputs):
         denoised = self.denoiser(inputs)
-        enhanced = self.msef(denoised)
+        enhanced = self.efblock(denoised)
         output = self.final_conv(enhanced)
         return output
 
