@@ -47,7 +47,7 @@ class ShuffleAttention(nn.Module):
         b, c, h, w = x.shape
         x = x.reshape(b, groups, -1, h, w)
         x = x.permute(0, 2, 1, 3, 4)
-        x = x.reshape(b, -1, h, w)
+        x = x.reshape(b, -1, h, w) # flatten
         return x
 
     def forward(self, x):
