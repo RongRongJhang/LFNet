@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from ecb import ECB
 
-# model7_modify5_fix2 (只留 denoiser + msef)(真的Shuffle Attention)
+# model9_modify 去掉 U-Net 後的 EFBlock
 
 class LayerNormalization(nn.Module):
     def __init__(self, dim):
@@ -134,7 +134,7 @@ class LaaFNet(nn.Module):
     def __init__(self, filters=48):
         super(LaaFNet, self).__init__()
         self.denoiser = Denoiser(filters, kernel_size=3, activation='relu')
-        self.efblock = EFBlock(filters)
+        # self.efblock = EFBlock(filters)
         self.final_conv = nn.Sequential(
             nn.Conv2d(filters, filters//2, 3, padding=1),
             nn.ReLU(inplace=True),
@@ -144,8 +144,8 @@ class LaaFNet(nn.Module):
 
     def forward(self, inputs):
         denoised = self.denoiser(inputs)
-        enhanced = self.efblock(denoised)
-        output = self.final_conv(enhanced)
+        # enhanced = self.efblock(denoised)
+        output = self.final_conv(denoised)
         return output
 
     def _init_weights(self):
