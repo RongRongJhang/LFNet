@@ -54,6 +54,7 @@ def main():
     model = LaaFNet().to(device)
     model.load_state_dict(torch.load(weights_path, map_location=device))
     print(f'Model loaded from {weights_path}')
+    # model.eval()
 
     save_valid_output(model, valid_loader, device, output_folder)
 

@@ -112,6 +112,7 @@ def main():
             weights_path = opt.results_folder + 'LOLv2_syn/train/checkpoints/'
             file_path = opt.results_folder + 'LOLv2_syn/train/metrics.md'
 
+        # model.eval()
         save_valid_output(model, valid_loader, device, output_folder)
 
         # GT mean 表示 GroundTruth 圖像做過 Gamma 校正

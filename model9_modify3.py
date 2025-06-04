@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from ecb import ECB
 
-# model9_modify 去掉 U-Net 後面的 EFBlock
+# model9_modify 的 Denoiser 改成類似原始 U-Net 架構
 
 class LayerNormalization(nn.Module):
     def __init__(self, dim):
@@ -99,23 +99,44 @@ class EFBlock(nn.Module):
         init.constant_(self.depthwise_conv.bias, 0)
 
 class Denoiser(nn.Module):
-    def __init__(self, num_filters, kernel_size=3, activation='relu'):
+    def __init__(self, num_filters, kernel_size=3):
         super(Denoiser, self).__init__()
-        self.conv1 = nn.Conv2d(3, num_filters, kernel_size=kernel_size, padding=1)
-        self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
+        # 定義第一層卷積：Conv2d -> BatchNorm2d -> ReLU
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(3, num_filters, kernel_size=kernel_size, padding=1, bias=False),
+            nn.BatchNorm2d(num_filters),
+            nn.ReLU(inplace=True)
+        )
+        # 定義第二層卷積：Conv2d -> BatchNorm2d -> ReLU -> MaxPool2d
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, padding=1, bias=False),
+            nn.BatchNorm2d(num_filters),
+            nn.ReLU(inplace=True)
+        )
+        self.maxpool2 = nn.MaxPool2d(2)
+        # 定義第三層卷積：Conv2d -> BatchNorm2d -> ReLU -> MaxPool2d
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, padding=1, bias=False),
+            nn.BatchNorm2d(num_filters),
+            nn.ReLU(inplace=True)
+        )
+        self.maxpool3 = nn.MaxPool2d(2)
+        # 保留原始的瓶頸層和精煉層
         self.bottleneck = EFBlock(num_filters)
         self.refine3 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
         self.refine2 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
+        # 保留上採樣層
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.up3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.activation = getattr(F, activation)
+        # 初始化權重
         self._init_weights()
 
     def forward(self, x):
-        x1 = self.activation(self.conv1(x), inplace=True)
-        x2 = self.activation(self.conv2(x1), inplace=True)
-        x3 = self.activation(self.conv3(x2), inplace=True)
+        x1 = self.conv1(x)
+        x2 = self.conv2(x1)
+        x2 = self.maxpool2(x2)
+        x3 = self.conv3(x2)
+        x3 = self.maxpool3(x3)
         x = self.bottleneck(x3)
         x = self.up3(x)
         x = self.refine3(x + x2)
@@ -126,15 +147,17 @@ class Denoiser(nn.Module):
     
     def _init_weights(self):
         for layer in [self.conv1, self.conv2, self.conv3]:
-            init.kaiming_uniform_(layer.weight, a=0, mode='fan_in', nonlinearity='relu')
-            if layer.bias is not None:
-                init.constant_(layer.bias, 0)
+            for module in layer:
+                if isinstance(module, nn.Conv2d):
+                    init.kaiming_uniform_(module.weight, a=0, mode='fan_in', nonlinearity='relu')
+                    if module.bias is not None:
+                        init.constant_(module.bias, 0)
 
 class LaaFNet(nn.Module):
     def __init__(self, filters=48):
         super(LaaFNet, self).__init__()
-        self.denoiser = Denoiser(filters, kernel_size=3, activation='relu')
-        # self.efblock = EFBlock(filters)
+        self.denoiser = Denoiser(filters, kernel_size=3)
+        self.efblock = EFBlock(filters)
         self.final_conv = nn.Sequential(
             nn.Conv2d(filters, filters//2, 3, padding=1),
             nn.ReLU(inplace=True),
@@ -144,8 +167,8 @@ class LaaFNet(nn.Module):
 
     def forward(self, inputs):
         denoised = self.denoiser(inputs)
-        # enhanced = self.efblock(denoised)
-        output = self.final_conv(denoised)
+        enhanced = self.efblock(denoised)
+        output = self.final_conv(enhanced)
         return output
 
     def _init_weights(self):
