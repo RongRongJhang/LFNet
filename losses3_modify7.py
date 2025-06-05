@@ -69,7 +69,7 @@ class CombinedLoss(nn.Module):
         self.alpha3 = opt.hist_weight    # 直方圖損失
         self.alpha4 = opt.ssim_weight    # MS-SSIM
         self.alpha5 = opt.psnr_weight    # PSNR
-        self.alpha6 = opt.opt.freq_weight    # 頻域損失(新增)
+        self.alpha6 = opt.freq_weight    # 頻域損失(新增)
 
     def forward(self, y_true, y_pred):
         smooth_l1_l = smooth_l1_loss(y_true, y_pred)
