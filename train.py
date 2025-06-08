@@ -111,6 +111,10 @@ def main():
             label_folder = opt.data_valgt_lolv2_syn
             weights_path = opt.results_folder + 'LOLv2_syn/train/checkpoints/'
             file_path = opt.results_folder + 'LOLv2_syn/train/metrics.md'
+        
+        # os.makedirs 可以遞迴地建立多層資料夾, exist_ok=True 確保即使資料夾已經存在，程式也不會報錯。
+        os.makedirs(output_folder, exist_ok=True)
+        os.makedirs(weights_path, exist_ok=True)
 
         model.eval()
         save_valid_output(model, valid_loader, device, output_folder)

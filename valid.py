@@ -52,6 +52,9 @@ def main():
 
     _, valid_loader = create_paired_dataloaders(None, None, valid_low, valid_high, crop_size=None, batch_size=1, num_workers=1)
 
+    # os.makedirs 可以遞迴地建立多層資料夾, exist_ok=True 確保即使資料夾已經存在，程式也不會報錯。
+    os.makedirs(output_folder + metrics_dir, exist_ok=True)
+
     print(f'Valid loader: {len(valid_loader)}')
     
     model = LaaFNet().to(device)
