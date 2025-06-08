@@ -33,10 +33,13 @@ def main():
 
     if opt.best_PSNR:
         weights_path = weights_path + 'best_psnr_model.pth'
+        metrics_dir = 'best_PSNR/'
     elif opt.best_SSIM:
         weights_path = weights_path + 'best_ssim_model.pth'
+        metrics_dir = 'best_SSIM/'
     elif opt.best_LPIPS:
         weights_path = weights_path + 'best_lpips_model.pth'
+        metrics_dir = 'best_LPIPS/'
 
     if opt.DICM:
         test_low = opt.data_DICM
@@ -59,7 +62,10 @@ def main():
         unpaired = 'VV/'
         fnex = '*.jpg'
     
-    output_folder = opt.results_folder + paired + 'test/output/' + unpaired
+    output_folder = opt.results_folder + paired + 'test/output/' + metrics_dir + unpaired
+
+    # os.makedirs 可以遞迴地建立多層資料夾, exist_ok=True 確保即使資料夾已經存在，程式也不會報錯。
+    os.makedirs(output_folder, exist_ok=True)
 
     test_loader = create_unpaired_dataloaders(test_low)
 
@@ -68,11 +74,12 @@ def main():
     model = LaaFNet().to(device)
     model.load_state_dict(torch.load(weights_path, map_location=device))
     print(f'Model loaded from {weights_path}')
-    # model.eval()
 
+    model.eval()
     save_test_output(model, test_loader, device, output_folder)
 
     avg_niqe, avg_brisque = metrics_niqu(output_folder + fnex)
+    # print(f'Test NIQE: {avg_niqe.item():.4f}, BRISQUE: {avg_brisque.item():.4f}')
     print(f'Test NIQE: {avg_niqe:.4f}, BRISQUE: {avg_brisque:.4f}')
 
     os.environ['TZ']='Asia/Taipei'  
@@ -85,6 +92,7 @@ def main():
             f.write("| Timestemp |   NIQE   |   BRISQUE   |\n")
             f.write("|-----------|----------|-------------|\n")
         
+        # f.write(f"| {now} | {avg_niqe.item():.4f} | {avg_brisque.item():.4f} |\n")
         f.write(f"| {now} | {avg_niqe:.4f} | {avg_brisque:.4f} |\n")
 
 if __name__ == '__main__':

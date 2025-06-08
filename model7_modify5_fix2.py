@@ -4,8 +4,6 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from ecb import ECB
 
-# model9_modify
-
 class LayerNormalization(nn.Module):
     def __init__(self, dim):
         super(LayerNormalization, self).__init__()
@@ -20,67 +18,64 @@ class LayerNormalization(nn.Module):
         return x * self.gamma + self.beta
 
 class ShuffleAttention(nn.Module):
-    def __init__(self, channels, groups=8):  # 48/8=6, 6*2=12 (符合48通道)
+    def __init__(self, channels, reduction=4):
         super(ShuffleAttention, self).__init__()
+        self.channels = channels
+        self.reduction = reduction
+        self.group_channels = channels // reduction
         
-        self.groups = groups  # 使用8組，這樣每組會有6個通道(48/8=6)
-        split_channels = channels // (2 * groups)  # 48/(2*8)=3
-        
+        self.groups = max(1, channels // self.group_channels)
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         
-        # Channel attention parameters (每組3個通道)
-        self.cweight = nn.Parameter(torch.zeros(1, split_channels, 1, 1))
-        self.cbias = nn.Parameter(torch.ones(1, split_channels, 1, 1))
-        
-        # Spatial attention parameters (每組3個通道)
-        self.sweight = nn.Parameter(torch.zeros(1, split_channels, 1, 1))
-        self.sbias = nn.Parameter(torch.ones(1, split_channels, 1, 1))
+        # 修改權重形狀以匹配分組後的通道數
+        self.weight = nn.Parameter(torch.zeros(1, self.group_channels, 1, 1))
+        self.bias = nn.Parameter(torch.ones(1, self.group_channels, 1, 1))
         
         self.sigmoid = nn.Sigmoid()
-        self.gn = nn.GroupNorm(split_channels, split_channels)
-        
-        # Initialize weights
         self._init_weights()
 
-    @staticmethod
-    def channel_shuffle(x, groups):
-        b, c, h, w = x.shape
-        x = x.reshape(b, groups, -1, h, w)
-        x = x.permute(0, 2, 1, 3, 4)
-        x = x.reshape(b, -1, h, w) # flatten
-        return x
-
     def forward(self, x):
-        b, c, h, w = x.shape
-        
-        # Reshape and split channels (48->8組，每組6通道)
-        x = x.reshape(b * self.groups, -1, h, w)  # [b*8, 6, h, w]
-        x_0, x_1 = x.chunk(2, dim=1)  # 各[b*8, 3, h, w]
+        b, c, h, w = x.size()
         
         # Channel attention
-        xn = self.avg_pool(x_0)  # [b*8, 3, 1, 1]
-        xn = self.cweight * xn + self.cbias
-        xn = x_0 * self.sigmoid(xn)
+        y = self.avg_pool(x)  # [b, c, 1, 1]
+        y = y.reshape(b * self.groups, self.group_channels, 1, 1)
+        y = self.sigmoid(y * self.weight + self.bias)
         
         # Spatial attention
-        xs = self.gn(x_1)  # [b*8, 3, h, w]
-        xs = self.sweight * xs + self.sbias
-        xs = x_1 * self.sigmoid(xs)
-        
-        # Concatenate and shuffle
-        out = torch.cat([xn, xs], dim=1)  # [b*8, 6, h, w]
-        out = out.reshape(b, -1, h, w)  # [b, 48, h, w]
-        out = self.channel_shuffle(out, 2)  # 在兩個子組間shuffle
+        x_group = x.reshape(b * self.groups, self.group_channels, h, w)
+        out = x_group * y
+        out = out.reshape(b, c, h, w)
         
         return out
 
     def _init_weights(self):
-        init.kaiming_uniform_(self.cweight, a=0, mode='fan_in', nonlinearity='relu')
-        init.kaiming_uniform_(self.sweight, a=0, mode='fan_in', nonlinearity='relu')
+        init.kaiming_uniform_(self.weight, a=0, mode='fan_in', nonlinearity='relu')
 
-class EFBlock(nn.Module):
+class ColorBrightnessAdjustment(nn.Module):
+    def __init__(self, channels):
+        super(ColorBrightnessAdjustment, self).__init__()
+        self.conv1 = nn.Conv2d(channels, channels//4, 3, padding=1)
+        self.conv2 = nn.Conv2d(channels//4, 4, 3, padding=1)
+        self.sigmoid = nn.Sigmoid()
+        self._init_weights()
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x), inplace=True)
+        adj = self.conv2(x)
+        color_weights = self.sigmoid(adj[:, :3]) * 1.5
+        brightness_map = self.sigmoid(adj[:, 3:]) + 0.5
+        return color_weights, brightness_map
+    
+    def _init_weights(self):
+        init.kaiming_uniform_(self.conv1.weight, a=0, mode='fan_in', nonlinearity='relu')
+        init.kaiming_uniform_(self.conv2.weight, a=0, mode='fan_in', nonlinearity='relu')
+        init.constant_(self.conv1.bias, 0)
+        init.constant_(self.conv2.bias, 0)
+
+class MSEFBlock(nn.Module):
     def __init__(self, filters):
-        super(EFBlock, self).__init__()
+        super(MSEFBlock, self).__init__()
         self.layer_norm = LayerNormalization(filters)
         self.depthwise_conv = nn.Conv2d(filters, filters, kernel_size=3, padding=1, groups=filters)
         self.attention = ShuffleAttention(filters)
@@ -104,7 +99,7 @@ class Denoiser(nn.Module):
         self.conv1 = nn.Conv2d(3, num_filters, kernel_size=kernel_size, padding=1)
         self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
         self.conv3 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
-        self.bottleneck = EFBlock(num_filters)
+        self.bottleneck = MSEFBlock(num_filters)
         self.refine3 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
         self.refine2 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
@@ -134,7 +129,10 @@ class LaaFNet(nn.Module):
     def __init__(self, filters=48):
         super(LaaFNet, self).__init__()
         self.denoiser = Denoiser(filters, kernel_size=3, activation='relu')
-        self.efblock = EFBlock(filters)
+        self.msef = MSEFBlock(filters)
+        self.color_brightness_adjust = ColorBrightnessAdjustment(filters)
+        self.final_refine = ECB(inp_planes=filters, out_planes=filters, depth_multiplier=1.0, 
+                               act_type='relu', with_idt=True)
         self.final_conv = nn.Sequential(
             nn.Conv2d(filters, filters//2, 3, padding=1),
             nn.ReLU(inplace=True),
@@ -144,9 +142,15 @@ class LaaFNet(nn.Module):
 
     def forward(self, inputs):
         denoised = self.denoiser(inputs)
-        enhanced = self.efblock(denoised)
-        output = self.final_conv(enhanced)
-        return output
+        enhanced = self.msef(denoised)
+        color_weights, brightness_map = self.color_brightness_adjust(enhanced)
+        refined = self.final_refine(enhanced) + enhanced
+        output = self.final_conv(refined)
+        output = output * brightness_map  # Brightness adjustment
+        output = output * (1 + color_weights)  # Color enhancement
+        output = output + inputs
+
+        return (torch.tanh(output) + 1) / 2
 
     def _init_weights(self):
         for m in self.modules():

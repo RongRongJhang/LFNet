@@ -112,10 +112,10 @@ def main():
             weights_path = opt.results_folder + 'LOLv2_syn/train/checkpoints/'
             file_path = opt.results_folder + 'LOLv2_syn/train/metrics.md'
 
-        # model.eval()
+        model.eval()
         save_valid_output(model, valid_loader, device, output_folder)
 
-        # GT mean 表示 GroundTruth 圖像做過 Gamma 校正
+        # GT mean 表示有用 GroundTruth 圖像做過 Gamma 校正
         avg_psnr, avg_ssim, avg_lpips = metrics(output_folder + '*.png', label_folder, use_GT_mean=True)
 
         current_lr = optimizer.param_groups[0]['lr']
