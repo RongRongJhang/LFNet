@@ -5,7 +5,7 @@ def option():
     parser = argparse.ArgumentParser(description='LaaFNet')
     parser.add_argument('--batchSize', type=int, default=1, help='training batch size')
     parser.add_argument('--cropSize', type=int, default=256, help='image crop size')
-    parser.add_argument('--nEpochs', type=int, default=1000, help='number of epochs')
+    parser.add_argument('--nEpochs', type=int, default=800, help='number of epochs')
     parser.add_argument('--lr', type=float, default=2e-4, help='Learning Rate')
     parser.add_argument('--gpu_mode', type=bool, default=True)
     parser.add_argument('--threads', type=int, default=4, help='number of threads for dataloader to use')
