@@ -2,9 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-from ecb import ECB
 
-# model9_modify 去掉 U-Net 後面的 EFBlock
+# model9_modify 的 ECB 改成 Conv
 
 class LayerNormalization(nn.Module):
     def __init__(self, dim):
@@ -20,26 +19,23 @@ class LayerNormalization(nn.Module):
         return x * self.gamma + self.beta
 
 class ShuffleAttention(nn.Module):
-    def __init__(self, channels, groups=8):  # 48/8=6, 6*2=12 (符合48通道)
+    def __init__(self, channels, groups=8):
         super(ShuffleAttention, self).__init__()
         
-        self.groups = groups  # 使用8組，這樣每組會有6個通道(48/8=6)
-        split_channels = channels // (2 * groups)  # 48/(2*8)=3
+        self.groups = groups
+        split_channels = channels // (2 * groups)
         
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         
-        # Channel attention parameters (每組3個通道)
         self.cweight = nn.Parameter(torch.zeros(1, split_channels, 1, 1))
         self.cbias = nn.Parameter(torch.ones(1, split_channels, 1, 1))
         
-        # Spatial attention parameters (每組3個通道)
         self.sweight = nn.Parameter(torch.zeros(1, split_channels, 1, 1))
         self.sbias = nn.Parameter(torch.ones(1, split_channels, 1, 1))
         
         self.sigmoid = nn.Sigmoid()
         self.gn = nn.GroupNorm(split_channels, split_channels)
         
-        # Initialize weights
         self._init_weights()
 
     @staticmethod
@@ -47,30 +43,26 @@ class ShuffleAttention(nn.Module):
         b, c, h, w = x.shape
         x = x.reshape(b, groups, -1, h, w)
         x = x.permute(0, 2, 1, 3, 4)
-        x = x.reshape(b, -1, h, w) # flatten
+        x = x.reshape(b, -1, h, w)
         return x
 
     def forward(self, x):
         b, c, h, w = x.shape
         
-        # Reshape and split channels (48->8組，每組6通道)
-        x = x.reshape(b * self.groups, -1, h, w)  # [b*8, 6, h, w]
-        x_0, x_1 = x.chunk(2, dim=1)  # 各[b*8, 3, h, w]
+        x = x.reshape(b * self.groups, -1, h, w)
+        x_0, x_1 = x.chunk(2, dim=1)
         
-        # Channel attention
-        xn = self.avg_pool(x_0)  # [b*8, 3, 1, 1]
+        xn = self.avg_pool(x_0)
         xn = self.cweight * xn + self.cbias
         xn = x_0 * self.sigmoid(xn)
         
-        # Spatial attention
-        xs = self.gn(x_1)  # [b*8, 3, h, w]
+        xs = self.gn(x_1)
         xs = self.sweight * xs + self.sbias
         xs = x_1 * self.sigmoid(xs)
         
-        # Concatenate and shuffle
-        out = torch.cat([xn, xs], dim=1)  # [b*8, 6, h, w]
-        out = out.reshape(b, -1, h, w)  # [b, 48, h, w]
-        out = self.channel_shuffle(out, 2)  # 在兩個子組間shuffle
+        out = torch.cat([xn, xs], dim=1)
+        out = out.reshape(b, -1, h, w)
+        out = self.channel_shuffle(out, 2)
         
         return out
 
@@ -105,8 +97,8 @@ class Denoiser(nn.Module):
         self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
         self.conv3 = nn.Conv2d(num_filters, num_filters, kernel_size=kernel_size, stride=2, padding=1)
         self.bottleneck = EFBlock(num_filters)
-        self.refine3 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
-        self.refine2 = ECB(inp_planes=num_filters, out_planes=num_filters, depth_multiplier=1.0, act_type='relu', with_idt=True)
+        self.refine3 = nn.Conv2d(num_filters, num_filters, kernel_size=3, padding=1)
+        self.refine2 = nn.Conv2d(num_filters, num_filters, kernel_size=3, padding=1)
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.up3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.activation = getattr(F, activation)
@@ -118,14 +110,14 @@ class Denoiser(nn.Module):
         x3 = self.activation(self.conv3(x2), inplace=True)
         x = self.bottleneck(x3)
         x = self.up3(x)
-        x = self.refine3(x + x2)
+        x = self.activation(self.refine3(x + x2), inplace=True)
         x = self.up2(x)
-        x = self.refine2(x + x1)
+        x = self.activation(self.refine2(x + x1), inplace=True)
         
         return x
     
     def _init_weights(self):
-        for layer in [self.conv1, self.conv2, self.conv3]:
+        for layer in [self.conv1, self.conv2, self.conv3, self.refine2, self.refine3]:
             init.kaiming_uniform_(layer.weight, a=0, mode='fan_in', nonlinearity='relu')
             if layer.bias is not None:
                 init.constant_(layer.bias, 0)
@@ -134,6 +126,7 @@ class LaaFNet(nn.Module):
     def __init__(self, filters=48):
         super(LaaFNet, self).__init__()
         self.denoiser = Denoiser(filters, kernel_size=3, activation='relu')
+        self.efblock = EFBlock(filters)
         self.final_conv = nn.Sequential(
             nn.Conv2d(filters, filters//2, 3, padding=1),
             nn.ReLU(inplace=True),
@@ -143,7 +136,8 @@ class LaaFNet(nn.Module):
 
     def forward(self, inputs):
         denoised = self.denoiser(inputs)
-        output = self.final_conv(denoised)
+        enhanced = self.efblock(denoised)
+        output = self.final_conv(enhanced)
         return output
 
     def _init_weights(self):
