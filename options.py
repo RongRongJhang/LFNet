@@ -47,6 +47,8 @@ def option():
     parser.add_argument('--freq_weight',  type=float, default=0.05)
 
     # best model
+    parser.add_argument('--best_3_metrics', action='store_true')
+    parser.add_argument('--best_2_metrics', action='store_true')
     parser.add_argument('--best_PSNR', action='store_true')
     parser.add_argument('--best_SSIM', action='store_true') 
     parser.add_argument('--best_LPIPS', action='store_true')

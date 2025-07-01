@@ -131,7 +131,7 @@ def main():
             best_psnr = avg_psnr
             best_ssim = avg_ssim
             best_lpips = avg_lpips
-            torch.save(model.state_dict(), weights_path + '3metrics.pth')
+            torch.save(model.state_dict(), weights_path + 'best_3_metrics.pth')
             print(f'Saving model with PSNR: {best_psnr:.4f}, SSIM: {best_ssim:.4f}, LPIPS: {best_lpips:.4f}')
         
         if (avg_psnr > best_psnr and avg_ssim > best_ssim) or \
@@ -140,7 +140,7 @@ def main():
             best_psnr = max(avg_psnr, best_psnr)
             best_ssim = max(avg_ssim, best_ssim)
             best_lpips = min(avg_lpips, best_lpips)
-            torch.save(model.state_dict(), weights_path + '2metrics.pth')
+            torch.save(model.state_dict(), weights_path + 'best_2_metrics.pth')
             print(f'Saving model with PSNR: {best_psnr:.4f}, SSIM: {best_ssim:.4f}, LPIPS: {best_lpips:.4f}')
 
         if avg_psnr > best_psnr:

@@ -31,7 +31,13 @@ def main():
         file_path = opt.results_folder + 'LOLv2_syn/test/metrics.md'
         paired = 'LOLv2_syn/'
 
-    if opt.best_PSNR:
+    if opt.best_3_metrics:
+        weights_path = weights_path + 'best_3_metrics.pth'
+        metrics_dir = 'best_3_metrics/'
+    elif opt.best_2_metrics:
+        weights_path = weights_path + 'best_2_metrics.pth'
+        metrics_dir = 'best_2_metrics/'
+    elif opt.best_PSNR:
         weights_path = weights_path + 'best_psnr_model.pth'
         metrics_dir = 'best_PSNR/'
     elif opt.best_SSIM:
