@@ -84,7 +84,7 @@ def main():
     model.eval()
     save_test_output(model, test_loader, device, output_folder)
 
-    avg_niqe, avg_brisque, avg_loe = metrics_niqu(output_folder + fnex, test_low + fnex)
+    avg_niqe, avg_brisque, avg_loe = metrics_niqu(output_folder + fnex, test_low + '/')
     # print(f'Test NIQE: {avg_niqe.item():.4f}, BRISQUE: {avg_brisque.item():.4f}')
     print(f'Test NIQE: {avg_niqe:.4f}, BRISQUE: {avg_brisque:.4f}, LOE:  {avg_loe:.4f}')
 
