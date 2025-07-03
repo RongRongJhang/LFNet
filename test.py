@@ -95,11 +95,11 @@ def main():
 
     with open(file_path, "a") as f:
         if not file_exists:
-            f.write("| Timestemp |   NIQE   |   BRISQUE   |\n")
-            f.write("|-----------|----------|-------------|\n")
+            f.write("| Timestemp |   NIQE   |   BRISQUE   |    LOE    |\n")
+            f.write("|-----------|----------|-------------|-----------|\n")
         
         # f.write(f"| {now} | {avg_niqe.item():.4f} | {avg_brisque.item():.4f} |\n")
-        f.write(f"| {now} | {avg_niqe:.4f} | {avg_brisque:.4f} |\n")
+        f.write(f"| {now} | {avg_niqe:.4f} | {avg_brisque:.4f} | {avg_loe:.4f} |\n")
 
 if __name__ == '__main__':
     main()

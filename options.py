@@ -43,8 +43,8 @@ def option():
     parser.add_argument('--hist_weight',  type=float, default=0.05)
     parser.add_argument('--ssim_weight',  type=float, default=0.8)
     parser.add_argument('--psnr_weight',  type=float, default=0.005)
-    parser.add_argument('--color_weight',  type=float, default=0.15)
-    parser.add_argument('--freq_weight',  type=float, default=0.05)
+    # parser.add_argument('--color_weight',  type=float, default=0.15)
+    # parser.add_argument('--freq_weight',  type=float, default=0.05)
 
     # best model
     parser.add_argument('--best_3_metrics', action='store_true')
