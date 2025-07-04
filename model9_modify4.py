@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from ecb import ECB
 
-# model9_modify 的 EFBlock 改成只剩 Shuffle Attention
+# model9_modify_modify 的 EFBlock 改成只剩 Shuffle Attention
 
 class LayerNormalization(nn.Module):
     def __init__(self, dim):
