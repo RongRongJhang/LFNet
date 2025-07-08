@@ -94,11 +94,11 @@ def metrics(im_dir, test_low):
         
         im1 = Image.open(item).convert('RGB')
         score_brisque = brisque.score(im1)
-
-        score_piqe, _, _, _ = piqe(im1)
         
         im1 = np.array(im1)
         score_niqe = calculate_niqe(im1)
+
+        score_piqe, _, _, _ = piqe(im1)
 
         avg_brisque += score_brisque
         avg_niqe += score_niqe
