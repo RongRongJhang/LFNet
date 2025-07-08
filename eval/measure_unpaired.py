@@ -7,14 +7,15 @@ from niqe_utils import *
 from options import option
 import numpy as np
 import os
+from pypiqe import piqe
 # import pyiqa
 
 opt = option().parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # def metrics(im_dir):
-#     avg_niqe = 0
 #     n = 0
+#     avg_niqe = 0
 #     avg_brisque = 0
         
 #     for item in tqdm(sorted(glob.glob(im_dir))):
@@ -83,6 +84,7 @@ def metrics(im_dir, test_low):
     n = 0
     avg_niqe = 0
     avg_brisque = 0
+    avg_piqe = 0
     avg_loe = 0
         
     for item in tqdm(sorted(glob.glob(im_dir))):
@@ -91,12 +93,16 @@ def metrics(im_dir, test_low):
         name = os.path.basename(item)
         
         im1 = Image.open(item).convert('RGB')
-        score_brisque = brisque.score(im1) 
+        score_brisque = brisque.score(im1)
+
+        score_piqe, _, _, _ = piqe(im1)
+        
         im1 = np.array(im1)
         score_niqe = calculate_niqe(im1)
-        
+
         avg_brisque += score_brisque
         avg_niqe += score_niqe
+        avg_piqe += score_piqe
 
         im2 = Image.open(test_low + name).convert('RGB')
         im2 = np.array(im2)
@@ -107,6 +113,7 @@ def metrics(im_dir, test_low):
     
     avg_brisque = avg_brisque / n
     avg_niqe = avg_niqe / n
+    avg_piqe = avg_piqe / n
     avg_loe = avg_loe / n
     
-    return avg_niqe, avg_brisque, avg_loe
+    return avg_niqe, avg_brisque, avg_piqe, avg_loe
