@@ -92,8 +92,8 @@ def create_paired_dataloaders(train_low, train_high, valid_low, valid_high, crop
     valid_loader = None
     
     if train_low and train_high:
-        train_dataset = PairedDataset(train_low, train_high, transform=transform2(crop_size))
-        # train_dataset = PairedDataset(train_low, train_high, transform=transform3(crop_size))
+        # train_dataset = PairedDataset(train_low, train_high, transform=transform2(crop_size))
+        train_dataset = PairedDataset(train_low, train_high, transform=transform3(crop_size))
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
     if valid_low and valid_high:
